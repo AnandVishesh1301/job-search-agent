@@ -33,10 +33,12 @@ def clean_node(state: Dict[str, Any]) -> Dict[str, Any]:
     cleaned = strip_boilerplate(state["raw_text"])
     return {"cleaned_text": cleaned}
 
-def extract_node(state: Dict[str, Any]) -> Dict[str, Any]:
+def extract_node(state, config):
+    text = state.get("cleaned_text") or state["raw_text"]
     job = extract_job_structured(
         url=state["final_url"],
         source_title=state.get("page_title"),
-        cleaned_text=state["cleaned_text"]
+        cleaned_text=text,
+        config=config,  
     ).model_dump()
     return {"job": job}

@@ -2,63 +2,42 @@ import os
 import json
 from typing import Any, Dict
 from google import genai
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 from google.genai import types
-#from openai import OpenAI
 from .schemas import JobPosting
 
-def get_client() -> genai.Client:
-    # Picks up GEMINI_API_KEY from env automatically
-    return genai.Client()
 
-def get_model_name() -> str:
-    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+def _llm():
+    return ChatGoogleGenerativeAI(
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+        google_api_key=os.getenv("GEMINI_API_KEY"),
+        temperature=0,
+    )
 
-def extract_job_structured(url: str, source_title: str | None, cleaned_text: str) -> JobPosting:
-    """
-    Calls Gemini with structured output so we get a validated JobPosting.
-    Handles both dict and Pydantic return types from resp.parsed.
-    """
-    client = get_client()
-    model = get_model_name()
-
+def extract_job_structured(url: str, source_title: str | None, cleaned_text: str, config: Dict | None = None) -> JobPosting:
     system = (
-        "You are an expert ATS parser. Extract only job-specific info and avoid legal/EEO/"
-        "benefits boilerplate. Fill all fields you can. Return concise bullets for lists."
+        "You are an expert ATS parser. Extract only job-specific info and avoid "
+        "legal/EEO/benefits boilerplate. Fill all the fields you can. Return concise bullets for lists."
     )
 
-    resp = client.models.generate_content(
-        model=model,
-        contents=[
-            f"{system}\nURL: {url}\nPAGE_TITLE: {source_title or ''}\nTEXT:\n{cleaned_text}"
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=JobPosting,           # <- structured output via Pydantic
-            thinking_config=types.ThinkingConfig( # <- optional, speeds things up
-                thinking_budget=0
-            ),
-        ),
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system),
+        ("human", "URL: {url}\nPAGE_TITLE: {title}\nTEXT:\n{text}")
+    ])
+
+    # Gemini returns a Pydantic object
+    structured_llm = _llm().with_structured_output(JobPosting)  # validated output
+    chain = prompt | structured_llm
+
+    job = chain.invoke(
+        {"url": url, "title": source_title or "", "text": cleaned_text},
+        config=config,  # <- carries the Langfuse CallbackHandler
     )
-
-    # resp.parsed may be a dict OR an instance of JobPosting depending on SDK/runtime
-    parsed = resp.parsed
-
-    if isinstance(parsed, JobPosting):
-        job = parsed
-    elif isinstance(parsed, dict):
-        job = JobPosting(**parsed)
-    else:
-        # Fallback if parsing failed or came back empty
-        job = JobPosting(
-            url=url,
-            source_title=source_title,
-            notes="Structured parse returned empty/unknown; filled minimal fields."
-        )
-
-    # Ensure key context fields are set in case the model omitted them
+    
+    # job is already a JobPosting instance
     if not job.url:
         job.url = url
     if source_title and not job.source_title:
         job.source_title = source_title
-
     return job
