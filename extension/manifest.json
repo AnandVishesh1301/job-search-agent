@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Job Agent Capture",
+  "version": "0.1.0",
+  "permissions": ["contextMenus", "activeTab", "scripting"],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "*://boards.greenhouse.io/*",
+    "*://jobs.lever.co/*",
+    "*://*.myworkdayjobs.com/*",
+    "http://localhost/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://boards.greenhouse.io/*",
+        "*://jobs.lever.co/*",
+        "*://*.myworkdayjobs.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": { "service_worker": "sw.js" }
+}

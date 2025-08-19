@@ -4,9 +4,10 @@
 - [x] Source and parse job postings from URLs.
 - [x] Extract key info: title, skills, location, etc.
 - [x] Parse user resume/profile.
+- [ ] Extension to detect job postings and re-direct to the web app automatically.
 - [ ] Minimal Web App to get the job link, and show the scraped requirements on the dashboard
 - [ ] Match resume to jobs and score them.
-- [ ] Extension to detect job postings and re-direct to the web app automatically. 
+ 
 
 ## Next Steps
 - [ ] Expand the dashboard
